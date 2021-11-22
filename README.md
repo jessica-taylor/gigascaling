@@ -30,7 +30,7 @@ In the case of the supermajority of a random set, the set must be selected to be
 
 We have developed 2 concrete algorithms using the supermajority of random set method:
 
-1. The [Inductive Consensus Tree Protocol](ictp.io), a method that constructs a Merkle Patricia tree in each new block.
+1. The [Inductive Consensus Tree Protocol](http://ictp.io), a method that constructs a Merkle Patricia tree in each new block.
 2. [Small World Sharding](./small_world_sharding/small_world_sharding.pdf), a method that breaks the blockchain into multiple shards that reference each other.
 
 We are currently focusing more on Small World Sharding due to its simplicity, its lower transaction confirmation time, and its lack of a single point of failure.
