@@ -37,4 +37,4 @@ We are currently focusing more on Small World Sharding due to its simplicity, it
 
 # Contact
 
-This website was created by [Jessica Taylor](jessic.at).  I can be contacted at jessi.liu.taylor@gmail.com.  I plan on creating a mailing list for this project.
+This website was created by [Jessica Taylor](http://jessic.at).  I can be contacted at jessi.liu.taylor@gmail.com.  I plan on creating a mailing list for this project.
