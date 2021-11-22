@@ -8,7 +8,7 @@ on centralized parties that could commit fraud or otherwise sabotage the system.
 The most popular blockchains, such as Bitcoin and Ethereum, are not scalable.  They require every
 full node to download and verify every transaction.
 
-## Alternatives to "everyone verifies everything"
+## Theoretical alternatives to "everyone verifies everything"
 
 There are 2 broad categories of alterantives to everyone verifying everything:
 
@@ -25,3 +25,16 @@ There are 2 main forms of positive verification we consider:
 Although zk-SNARKs are sufficient to show validity, they aren't sufficient to show that the data itself is generally available to third parties.
 
 In the case of the supermajority of a random set, the set must be selected to be large enough (and the supermajority threshold must be set) such that it is very likely that there is an honest supermajority, and extremely unlikely that there is a dishonest supermajority.
+
+## Concrete algorithms
+
+We have developed 2 concrete algorithms using the supermajority of random set method:
+
+1. The [Inductive Consensus Tree Protocol](ictp.io), a method that constructs a Merkle Patricia tree in each new block.
+2. [Small World Sharding](), a method that breaks the blockchain into multiple shards that reference each other.
+
+We are currently focusing more on Small World Sharding due to its simplicity, its lower transaction confirmation time, and its lack of a single point of failure.
+
+# Contact
+
+This website was created by [Jessica Taylor](jessic.at).  I can be contacted at jessi.liu.taylor@gmail.com.  I plan on creating a mailing list for this project.
