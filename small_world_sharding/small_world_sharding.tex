@@ -1,0 +1,442 @@
+\documentclass{article}
+\usepackage{tikz}
+\usetikzlibrary{positioning}
+
+\begin{document}
+
+\title{Small world sharding with statistical proof-of-stake quorums}
+
+This paper presents a scalable blockchain algorithm.  It is an iterative improvement to the Inductive Consensus Tree Protocol (ICTP), but with better fault-tolerance (due to lack of a central point of failure), and it is simpler overall.
+
+\section{Theory of scalable blockchains}
+
+In conventional blockchains, such as Bitcoin and Ethereum, all full nodes will verify all transactions that happen.  This causes a blow-up in bandwidth, computation, and storage required.
+If there are $n$ nodes that each make $t$ transactions, then the amount of bandwidth, computation, and storage required in total is $O(tn^2)$.  Each transaction becomes increasingly expensive
+as $n$ increases, leading to high transaction fees in conventional blockchains.
+
+If we loosen the requirement that everyone verify all data, we run into a problem: how can everyone know that the blockchain's state is valid, without verifying it themselves?
+We now make a distinction in methods of solving this problem:
+
+\begin{itemize}
+  \item A \emph{positive} verification method attaches to blockchain data a ``proof'' that the data is valid, and that blockchain data it refers to (e.g. the previous block) has a valid proof.
+  \item A \emph{negative} verification method permits ``proof''s that blockchain data is invalid; if such proofs are found, they are distributed to others so it is clear that the data is invalid.
+\end{itemize}
+
+The main problem with negative verification methods is that problems that inhibit the network (outages, nodes that uncooperatively refuse to share information with some other nodes, etc)
+could prevent proofs of invalidity from being discovered and widely shared.  There is an inherent race condition with negative verification methods, where the proof of invalidity must be
+discovered and distributed before blockchain data is considered well-verified enough to consider transactions contained in it to have cleared.
+
+For positive verification methods, there are a number of different ways of constructing proofs that are easier to check than to generate:
+
+\begin{itemize}
+  \item A zk-SNARK may be included that verifies that the blockchain data is correct, and that blockchain data it refers to has a valid proof (also in the form of a zk-SNARK).
+  \item Signatures from a supermajority of a trusted set of parties may be included, which assert that these parties have verified the blockchain data, and that referenced blockchain data has signatures by a supermajority.
+  \item Signatures from a supermajority of a large random set of parties may be included, which assert that these parties have verified the blockchain data, and that referenced blockchain data has signatures by a supermajority.
+\end{itemize}
+
+There are a few issues with using zk-SNARKs for verification:
+
+\begin{itemize}
+  \item Even if a zk-SNARK verifies that the data is valid, it doesn't verify that the blockchain data (e.g. the next block) is \emph{unique}; there may, for example, be alternative versions of a blockchain
+        block, one of which says a given transaction happened, and one of which doesn't, both of which are valid.
+  \item The existence of a zk-SNARK verifying data as valid does not imply that that data is generally available; it may only be available to whoever created the SNARK.
+  \item Verifying a zk-SNARKs within a zk-SNARK is computationally expensive.
+  \item Software implementation is more difficult due to the complexity of zk-SNARKs.
+\end{itemize}
+
+The second method, a trusted set of parties, has the problem that it increases centralization, requiring everyone to trust a small set of parties.  Those parties, themselves, must run powerful computers
+that verify a large number of transactions.
+
+The third method is the main one considered in this paper.
+
+\subsection{Statistical quorums}
+
+Suppose there are $n$ accounts that are staking money.  Suppose we want a \textit{pool} (set of accounts) of expected size $k$.
+
+There are 2 ways of selecting such a pool:
+
+\begin{itemize}
+  \item We could select each account independently to be part of the pool with probability $k/n$.
+  \item We could create a pool of size $k$ and select a random account for each space in the pool.
+\end{itemize}
+
+Either way, if at least a  $h > 1/2$ portion of these stakers are honest, then if $k$ is high enough, there will exist some $0 < q < hk$ such that, with high probability (getting higher as $k$ is higher):
+
+\begin{itemize}
+  \item There will exist at least $q$ honest accounts in the pool.
+  \item There will exist fewer than $q$ dishonest accounts in the pool.
+\end{itemize}
+
+A subset of the pool of size at least $q$ is called a \textit{quorum}.  If a valid quorum signs a block, that block is generally considered to be valid;
+hence, it is desirable for it to simultaneously be highly probable than there is an honest quorum (so the block may be signed), and highly improbable
+than there is a dishonest quorum (so no invalid blocks are signed, and there are no forks formed by two different valid blocks being signed by valid quorums).
+
+This is due to the central limit theorem.  Both the distributions over number of honest and dishonest accounts in the pool are binomial.
+In the case of selecting each account independently with probability $k/n$, both distributions are approximately Poisson.
+
+For example, suppose that $n$ is high enough for the Poisson approximation to be valid, and suppose that $h = 2/3$ portion are honest.
+Then if we form a quorum of expected size $k = 2000$, then the number of honest accounts is Poisson distributed with mean $1333.33$,
+and the number of dishonest accounts is Poisson distributed with mean $666.67$.
+The probability of there being fewer than $q = 1000$ honest accounts in the pool is then less than $10^{-21}$, while the probability of 
+there being at least 1000 dishonest accounts in the pool is less than $10^{-32}$.
+
+\section{Algorithm overview}
+
+Here we present a basic overview of the algorithm.
+
+
+\subsection{Proof-of-stake blockchain with statistical quorums}
+
+\tikzset{block/.style = {draw, rectangle, align=center}}
+\tikzset{selblock/.style = {draw=blue, rectangle, align=center}}
+\tikzset{pathblock/.style = {draw=green, rectangle, align=center}}
+
+\begin{figure}
+  \centering
+  \begin{tikzpicture}
+    \node[block] (0) {Index: 0 \\ Signatures: ...};
+    \node[block] (1) [right=of 0] {Index: 1 \\ Transactions: ... \\ Signatures: ...};
+    \node[block] (2) [right=of 1] {Index: 2 \\ Transactions: ... \\ Signatures: ...};
+
+    \draw[<-] (0) -- (1);
+    \draw[<-] (1) -- (2);
+
+  \end{tikzpicture}
+  \caption{Non-sharded blockchain.}
+\end{figure}
+
+There is a simple way to make a proof-of-stake blockchain with statistical
+quorums.  Specifically, we form a random pool every $r$'th block, and require
+that the block is signed by a quorum of pool members.  These pool members check
+the transactions in the block, and check that the block continues from a block
+containing a valid quorum's signatures.  Assuming honest stakers never sign two
+different new blocks, there will be a uniquely identifiable new block.
+
+\subsection{Sharding}
+
+\begin{figure}
+  \centering
+  \begin{tikzpicture}
+    \node[block] (00) {Shard: 31 \\ Index: 0 \\ Signatures: ...};
+    \node[block] (01) [right=of 00] {Shard: 31 \\ Index: 1 \\ Transactions: ... \\ Signatures: ...};
+    \node[block] (02) [right=of 01] {Shard: 31 \\ Index: 2 \\ Transactions: ... \\ Signatures: ...};
+
+    \draw[<-] (00) -- (01);
+    \draw[<-] (01) -- (02);
+
+    \node[block] (10) [below=of 00] {Shard: 34 \\ Index: 0 \\ Signatures: ...};
+    \node[block] (11) [right=of 10] {Shard: 34 \\ Index: 1 \\ Transactions: ... \\ Signatures: ...};
+    \node[block] (12) [right=of 11] {Shard: 34 \\ Index: 2 \\ Transactions: ... \\ Signatures: ...};
+
+    \draw[<-] (10) -- (11);
+    \draw[<-] (11) -- (12);
+
+    \node[block] (20) [below=of 10] {Shard: 84 \\ Index: 0 \\ Signatures: ...};
+    \node[block] (21) [right=of 20] {Shard: 84 \\ Index: 1 \\ Transactions: ... \\ Signatures: ...};
+    \node[block] (22) [right=of 21] {Shard: 84 \\ Index: 2 \\ Transactions: ... \\ Signatures: ...};
+
+    \draw[<-] (20) -- (21);
+    \draw[<-] (21) -- (22);
+  \end{tikzpicture}
+  \caption{Non-networked sharded blockchain.}
+\end{figure}
+
+We can run many of these blockchains in parallel; these parallel blockchains
+are called \textit{shards}.  Since they are proof-of-stake, there is not a
+potential problem with concentrating proof-of-work computation on a single
+blockchain to take it over.  Different shards will handle transactions for
+different sets of accounts; generally, each account is assigned to a random
+shard.
+
+Ideally, these different shards could share the set of stakers, since a larger
+population of stakers yields better statistical guarantees.  Also, it would be
+desirable for the different shards to be able to send transactions to each
+other.
+
+Suppose shard A is producing block number $v_a$, which is meant to receive money
+from someone in shard B; assume the resident of shard B sent the money in block
+$b$.  Now, for block $v_a$ of shard A to receive money from block $v_b$ of shard B,
+there must be some checkable proof that block $v_b$ of B has been validated before the
+time of block $v_a$ of A.  Luckily, there is such a proof: signatures by a quorum
+validating block $v_b$ of B.  If the quorum has attested that block $v_b$ of B is, indeed,
+the $v_b$'th block of shard B, then validators of shard A can trust this, and can
+therefore check whether the send being receved from has happened.
+
+This requires everyone to be able to potentially find out the members of the pool
+of ever shard.  If pools are assigned at random at the beginning and never changed,
+this is easy; we will cover re-shuffling pools later.
+
+This is the basic sharding algorithm.  It is somewhat inefficient, since, for
+quorum threshold $q$, there must be a total of $q^2$ signature checks per
+receive transaction ($q$ validators for shard A checking signatures of $q$
+validators for shard B).  The rest of this paper, therefore, focuses on an
+algorithm with improved data efficiency.
+
+
+\subsection{Small-world network}
+
+\begin{figure}
+  \centering
+  \begin{tikzpicture}
+    \node[block] (00) {Shard: 31 \\ Index: 0 \\ Signatures: ...};
+    \node[block] (01) [right=of 00] {Shard: 31 \\ Index: 1 \\ Transactions: ... \\ Signatures: ...};
+    \node[block] (02) [right=of 01] {Shard: 31 \\ Index: 2 \\ Transactions: ... \\ Signatures: ...};
+
+    \draw[<-] (00) -- (01);
+    \draw[<-] (01) -- (02);
+
+    \node[block] (10) [below=of 00] {Shard: 34 \\ Index: 0 \\ Signatures: ...};
+    \node[block] (11) [right=of 10] {Shard: 34 \\ Index: 1 \\ Transactions: ... \\ Signatures: ...};
+    \node[block] (12) [right=of 11] {Shard: 34 \\ Index: 2 \\ Transactions: ... \\ Signatures: ...};
+
+    \draw[<-] (10) -- (11);
+    \draw[<-] (11) -- (12);
+
+    \node[block] (20) [below=of 10] {Shard: 84 \\ Index: 0 \\ Signatures: ...};
+    \node[block] (21) [right=of 20] {Shard: 84 \\ Index: 1 \\ Transactions: ... \\ Signatures: ...};
+    \node[block] (22) [right=of 21] {Shard: 84 \\ Index: 2 \\ Transactions: ... \\ Signatures: ...};
+
+    \draw[<-] (20) -- (21);
+    \draw[<-] (21) -- (22);
+
+    \draw[<-] (00) -- (11);
+    \draw[<-] (10) -- (01);
+
+    \draw[<-] (11) -- (22);
+    \draw[<-] (21) -- (12);
+  \end{tikzpicture}
+  \caption{Small world sharding.}
+\end{figure}
+
+To alleviate the inefficiency, consider the following approach.  Organize $m$
+different shards into a small-world network.  For example, this could be done
+by choosing some base $b$, writing each shard's index (which is between 0 and
+$m-1$) in base $b$, and considering each shard's neighbors to be those whose
+index could be formed by modifying a single base-$b$ digit.  This way, the
+graph distance between any two shards is no more than $\lceil \log_b m \rceil$,
+and every shard has at most $b \lceil \log_b m \rceil$ neighbors.
+
+Now, suppose that each block in each shard contains the hash codes of the most
+recent known blocks of every neighboring shard.  The verifiers of a given block
+will check that the referenced other blocks are signed by an appropriate
+quorum.  
+
+We can now succinctly prove that some block $a$ occurs after some block $b$, as
+follows.  If there is a chain of blocks, starting at $b$ and ending at $a$,
+each of which contains the hash code of the previous one, and each of which is
+signed by an appropriate quorum, then block $a$ occurs after block $b$.  (Note
+that each block necessarily contains the hash code of the previous block of the
+same shard, as usual in a blockchain).
+
+We now require a receiving transaction to occur in a block that comes after the
+block containing the corresponding sending transaction.
+At this point, checking the transaction does not require downloading and
+verifying any \textit{additional} signatures; the proof of the existence of a
+chain of blocks can omit the signatures themselves, providing only the hash
+code of the signature list in each block.  Since the signatures of the
+neighboring blocks were already checked, and these signatures verify that the
+verifiers of these neighboring blocks already checked the signatures of blocks
+neighboring the neighboring blocks, and so on recursively, no additional
+signature checking is necessary.
+If the new block contains many transactions, then the overall amount of work
+will be reduced.
+
+We can consider a further efficiency improvement.  Since each shard index can
+be written in $\lceil \log_b m\rceil$ base-$b$ digits, we can say that a block
+whose index (taking the first block in a shard to have index 0, the next to
+have index 1, and so on) is $c$ mod $b$ will only include neighbors that differ
+at digit $c$.  This does not significantly lengthen paths, since there will be
+a length $\lceil \log_b m \rceil$ path between any two shards, formed by
+modifying the digit at each position in sequence.  (Inclusion of hash codes
+is to some degree unreliable e.g. due to network issues; such unreliability
+can increase the length of paths, but this is not a serious problem as long
+as the network starts working in the future)
+
+\subsection{Pseudorandomness}
+
+\begin{figure}
+  \centering
+  \begin{tikzpicture}
+    \node[selblock] (00) {Shard: 31 \\ Index: 0 \\ Signatures: ...};
+    \node[block] (01) [right=of 00] {Shard: 31 \\ Index: 1 \\ Transactions: ... \\ Signatures: ...};
+    \node[block] (02) [right=of 01] {Shard: 31 \\ Index: 2 \\ Transactions: ... \\ Signatures: ...};
+
+    \draw[<-] (00) -- (01);
+    \draw[<-] (01) -- (02);
+
+    \node[block] (10) [below=of 00] {Shard: 34 \\ Index: 0 \\ Signatures: ...};
+    \node[pathblock] (11) [right=of 10] {Shard: 34 \\ Index: 1 \\ Transactions: ... \\ Signatures: ...};
+    \node[selblock] (12) [right=of 11] {Shard: 34 \\ Index: 2 \\ Transactions: ... \\ Signatures: ...};
+
+    \draw[<-] (10) -- (11);
+    \draw[<-] (11) -- (12);
+
+    \node[block] (20) [below=of 10] {Shard: 84 \\ Index: 0 \\ Signatures: ...};
+    \node[selblock] (21) [right=of 20] {Shard: 84 \\ Index: 1 \\ Transactions: ... \\ Signatures: ...};
+    \node[block] (22) [right=of 21] {Shard: 84 \\ Index: 2 \\ Transactions: ... \\ Signatures: ...};
+
+    \draw[<-] (20) -- (21);
+    \draw[<-] (21) -- (22);
+
+    \draw[<-] (00) -- (11);
+    \draw[<-] (10) -- (01);
+
+    \draw[<-] (11) -- (22);
+    \draw[<-] (21) -- (12);
+  \end{tikzpicture}
+  \caption{Blue blocks are part of the snapshot taken from the latest block of shardd 34.}
+\end{figure}
+
+Pseudorandom numbers can be generated using threshold cryptography, as
+described in the ICTP paper.  Pseudorandom numbers are generated on a per-shard
+basis; each shard runs its own random number generation procedure.
+
+The primary use of random numbers is selecting stakers to participate in
+quorums.  Quorums are occasionally reshuffled; they are re-sampled according to
+a snapshot of current account stakes.
+
+Due to the absence of a total time order in a sharding system, creating a
+snapshot is somewhat tricky.  Each snapshot is taken from a single shard's
+perspective, starting at a given block.  Between any 2 shards A and B, there
+is a canonical path from some block of shard $A$ to shard $v_b$ of B, formed
+by modifying the digits of $A$'s shard index in sequence going backwards.
+The snapshot includes the block selected by this canonical path, for every
+other shard.  (Note that the snapshot is a hypothetical object; no snapshot
+need be fully computed.)
+
+At this point, the procedure for selecting a random staker is as follows.  We
+select a random shard (and a recent block from it according to the canonical
+path) and keep it with probability proportional to that shard's total stake.
+For such proportional selection to be tractable, we assume an upper bound on
+stake per shard, which is yielded with high probability if accounts are
+randomly distributed between shards, and there is a maximum stake per account.
+If we didn't keep the shard, we re-sample another shard, repeating the
+procudre.  Once we have selected a shard, we select a staker within that shard
+proportional to that staker's stake amount.
+
+This procedure, repeated, selects a pool of an arbitrary size.  The same account
+may be selected multiple times to participate in the same pool, in which case it
+has a number of votes equal to the number of times it was selected.
+
+Note that the pool members of a given shard need to know the pool members of
+neighboring shards, so that they can check whether neighboring blocks are
+endorsed.  Since each shard has a small number of neighbors, this is
+not especially expensive if pools are only occasionally re-shuffled.
+
+When transaction volume is too high, it is necessary to increase the number of
+shards.  When this is done, it is necessary to re-assign account data to the
+new shards.  For this to work, there has to be global consensus about when
+shards should be re-shuffled; a simple way to do this is to say that
+transaction volume is measured from some canonical shard, although this
+has the problem that this canonical shard becomes a single point of failure.
+There are likely better ways of deciding when to increase the number of shards,
+which may be included in future versions of this paper.
+
+\section{Algorithm specification}
+
+Now we proceed to a more thorough definition of the algorithm.
+
+\subsection{Cryptographic primitives}
+
+We assume the following cryptographic primitives:
+
+\begin{itemize}
+  \item A hash function, such as SHA256.
+  \item A digital signature algorithm, such as RSA or ECDSA.
+\end{itemize}
+
+\subsection{Accounts}
+
+An account is a hash code of a public key.  It is a fixed number of bits (e.g. 256 for SHA256).
+
+\subsection{Shards}
+
+There are $s$ shards.  An account can be mapped to a shard pseudorandomly by taking its value (as a binary number) mod $s$.
+
+\subsection{Actions}
+
+An action is taken by an account.  Actions consist of a sequence of parts, which are executed in sequence.
+
+A send part contains the following fields:
+
+\begin{itemize}
+  \item The amount of money to send.
+  \item The receiving account.
+  \item A unique identifier.
+\end{itemize}
+
+A receive part contains the following fields:
+
+\begin{itemize}
+  \item The account being received from.
+  \item The index of the block containing the send.
+  \item The hash code of the send part being received from.
+\end{itemize}
+
+While there are other action parts for handling transfers between balance and stake, they are not elaborated here.
+
+An action contains the following fields:
+
+\begin{itemize}
+  \item The hash code of the last block in the shard.
+  \item A list of parts.
+  \item A fee paid to execute this action.
+  \item A signature by the account executing the action.
+\end{itemize}
+
+\subsection{Merkle patricia trees}
+
+Each block contains a Merkle patricia tree, which tracks the state of each
+account the block's shard is responsible for, at the time of the block.
+A node in a tree contains the following fields:
+
+\begin{itemize}
+  \item Optionally, an entry.
+  \item A list of hash codes of child nodes and their corresponding suffixes.
+\end{itemize}
+
+The Merkle Patricia tree represents a mapping from quaternary strings
+(\textit{keys}) to entries.  Keys are assigned as follows:
+
+\begin{itemize}
+  \item The key for account $a$'s balance is the quaternary representation of $a$, followed by 0.
+  \item The key for account $a$'s stake is the quaternary representation of $a$, followed by 1.
+  \item The key for a send part sent by account $a$ with hash code $s$ is the quaternary representation of $a$, followed by 2, followed by the quaternary representation of $s$.
+  \item The key for a Boolean indicating whether account $a$ has received a send part with hash code $s$ is the quaternary representation of $a$, followed by 3, followed by the quaternary representation of $s$.
+\end{itemize}
+
+The exact way keys are assigned is not important; it is more important that
+they can easily assigned to uniquely reference any account data.  Each shard
+contains only the data for accounts corresponding to that shard.
+
+Most nodes in the tree are preserved from one block to the next block in the same shard;
+only the nodes that are on the path to modified keys must be changed.  This is
+structurally identical with operations on purely functional tree data structures.
+
+\subsection{Blocks}
+
+A block contains the following fields:
+
+\begin{itemize}
+  \item The index of the block's shard.
+  \item The block's index (within the shard).
+  \item The hash code of the previous block.
+  \item The hash codes of latest blocks of appropriate neighboring shards.
+  \item The hash code of the root Merkle Patricia node for the current account data.
+  \item The new actions being executed in this block.
+  \item The total amount of stake of accounts in the Merkle Patricia tree.
+  \item The hash code of a list of signatures by a quorum.
+\end{itemize}
+
+\section{Additional features}
+
+  \subsection{Smart contracts}
+
+  Smart contracts can be defined that use the actor model.  That is, different smart contracts may send messages to each other (which may contain money), which get received at some nondeterministic future time.  This is not elaborated on, since it is already described in the ICTP paper.
+
+  \subsection{Privacy}
+
+  Privacy is possible by hiding account data, instead having the verified data in each shard store a Merkle root of the private account data.  zk-SNARKs can be used to show that the private account data is transformed lawfully, which requires receive actions to receive from an actually-existing send.  This feature is not elaborated on further here, since it is essentially the same as in ICTP.
+
+
+\end{document}
