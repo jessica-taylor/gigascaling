@@ -405,9 +405,35 @@ A block contains the following fields:
 
   \subsection{Smart contracts}
 
-  Smart contracts can be defined that use the actor model.  That is, different smart contracts may send messages to each other (which may contain money), which get received at some nondeterministic future time.  This is not elaborated on, since it is already described in the ICTP paper.
+  Smart contracts can be defined that use the actor model.  That is, different smart contracts may send messages to each other (which may contain money), which get received at some nondeterministic future time.
+
+  To implement smart contracts, we differentiate accounts into \emph{user} accounts, which have a public key, and \emph{contract} accounts, which are controlled by smart contract code.
+
+  Contracts are specified in WebAssembly.  Each contract module must include code specifying three functions:
+
+  \begin{itemize}
+    \item \textbf{init}, which is called on contract initialization.
+    \item \textbf{command}, which executes an operation (perhaps consuming one or more messages sent to the contract) producing a new state.
+    \item \textbf{query}, which reads contract state to produce a result but does not modify the state.
+
+  \end{itemize}
+
+  Contract module code is run through a preprocessor that performs the following modifications:
+
+  \begin{itemize}
+    \item inserts a step-counter which computes gas costs during execution based on computational resource usage.
+    \item canonizes nondeterministic outputs such as floating point numbers.
+  \end{itemize}
+
+  Contracts have access to an API with the following functions and more:
+
+  \begin{itemize}
+    \item Sending and receiving messages, which may contain money.
+    \item Reading and writing data fields that are part of the contract's state.
+  \end{itemize}
 
   \subsection{Privacy}
+
 
   Privacy is possible by hiding account data, instead having the verified data in each shard store a Merkle root of the private account data.  zk-SNARKs can be used to show that the private account data is transformed lawfully, which requires receive actions to receive from an actually-existing send.  This feature is not elaborated on further here, since it is essentially the same as in ICTP.
 
