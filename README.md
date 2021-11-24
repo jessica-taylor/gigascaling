@@ -41,7 +41,7 @@ We are currently focusing more on Small World Sharding due to its simplicity, it
 This website was created by [Jessica Taylor](http://jessic.at).  I can be contacted at jessi.liu.taylor@gmail.com.
 
 <form action="https://gigascaling.us20.list-manage.com/subscribe/post?u=61c975c73b706888efaa969c1&amp;id=6cc0960d2f" method="post" id="mc-embedded-subscribe-form" name="mc-embedded-subscribe-form" class="validate" target="_blank" novalidate>
-	<label for="mce-EMAIL">Subscribe to our newsletter</label>
+	<label for="mce-EMAIL">Subscribe to our newsletter:</label>
 	<input type="email" value="" name="EMAIL" class="email" id="mce-EMAIL" placeholder="email address" required>
     <!-- real people should not fill this in and expect good things - do not remove this or risk form bot signups-->
     <div style="position: absolute; left: -5000px;" aria-hidden="true"><input type="text" name="b_61c975c73b706888efaa969c1_6cc0960d2f" tabindex="-1" value=""></div>
