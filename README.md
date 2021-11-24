@@ -6,7 +6,8 @@ so that everyone can know that the rules of the system are being followed, and t
 on centralized parties that could commit fraud or otherwise sabotage the system.
 
 The most popular blockchains, such as Bitcoin and Ethereum, are not scalable.  They require every
-full node to download and verify every transaction.
+full node to download and verify every transaction.  This means high transaction fees, and it means
+that even a single large country's financial transactions could not all occur on these networks.
 
 ## Theoretical alternatives to "everyone verifies everything"
 
