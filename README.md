@@ -1,4 +1,4 @@
-# Chainscale: a project to scale blockchains to support all the world's financial transactions
+# Gigascaling: a project to scale blockchains to support all the world's financial transactions
 
 As a substrate for a financial and bureaucratic system, blockchains have important advantages: they
 allow anyone with a computer to participate in the system, they allow transactions to be audited
