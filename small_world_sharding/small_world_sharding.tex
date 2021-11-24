@@ -258,39 +258,6 @@ as the network starts working in the future)
 
 \subsection{Pseudorandomness}
 
-\begin{figure}
-  \centering
-  \begin{tikzpicture}
-    \node[selblock] (00) {Shard: 31 \\ Index: 0 \\ Signatures: ...};
-    \node[block] (01) [right=of 00] {Shard: 31 \\ Index: 1 \\ Transactions: ... \\ Signatures: ...};
-    \node[block] (02) [right=of 01] {Shard: 31 \\ Index: 2 \\ Transactions: ... \\ Signatures: ...};
-
-    \draw[<-] (00) -- (01);
-    \draw[<-] (01) -- (02);
-
-    \node[block] (10) [below=of 00] {Shard: 34 \\ Index: 0 \\ Signatures: ...};
-    \node[pathblock] (11) [right=of 10] {Shard: 34 \\ Index: 1 \\ Transactions: ... \\ Signatures: ...};
-    \node[selblock] (12) [right=of 11] {Shard: 34 \\ Index: 2 \\ Transactions: ... \\ Signatures: ...};
-
-    \draw[<-] (10) -- (11);
-    \draw[<-] (11) -- (12);
-
-    \node[block] (20) [below=of 10] {Shard: 84 \\ Index: 0 \\ Signatures: ...};
-    \node[selblock] (21) [right=of 20] {Shard: 84 \\ Index: 1 \\ Transactions: ... \\ Signatures: ...};
-    \node[block] (22) [right=of 21] {Shard: 84 \\ Index: 2 \\ Transactions: ... \\ Signatures: ...};
-
-    \draw[<-] (20) -- (21);
-    \draw[<-] (21) -- (22);
-
-    \draw[<-] (00) -- (11);
-    \draw[<-] (10) -- (01);
-
-    \draw[<-] (11) -- (22);
-    \draw[<-] (21) -- (12);
-  \end{tikzpicture}
-  \caption{Blue blocks are part of the snapshot taken from the latest block of shardd 34.}
-\end{figure}
-
 Pseudorandom numbers can be generated using threshold cryptography, as
 described in the ICTP paper.  Pseudorandom numbers are generated on a per-shard
 basis; each shard runs its own random number generation procedure.
@@ -300,13 +267,14 @@ quorums.  Quorums are occasionally reshuffled; they are re-sampled according to
 a snapshot of current account stakes.
 
 Due to the absence of a total time order in a sharding system, creating a
-snapshot is somewhat tricky.  Each snapshot is taken from a single shard's
-perspective, starting at a given block.  Between any 2 shards A and B, there
-is a canonical path from some block of shard $A$ to shard $v_b$ of B, formed
-by modifying the digits of $A$'s shard index in sequence going backwards.
-The snapshot includes the block selected by this canonical path, for every
-other shard.  (Note that the snapshot is a hypothetical object; no snapshot
-need be fully computed.)
+snapshot is somewhat tricky.  Each block contains a timestamp estimating
+the time at which the block is created.  For any time $t$ and any shard,
+that shard either has a first block at time $t$ or later, or has no blocks
+at time $t$ or later.  A snapshot for time $t$ is taken to consist of the
+set of first blocks after time $t$ for each shard.  A block that is part
+of a $t$-snapshot will be indirectly referenced by all shards at some later
+time $t+q$, assuming no major network issues.  (Note that the snapshot is
+a hypothetical object; no snapshot need be fully computed.)
 
 At this point, the procedure for selecting a random staker is as follows.  We
 select a random shard (and a recent block from it according to the canonical
@@ -425,6 +393,7 @@ A block contains the following fields:
   \item The index of the block's shard.
   \item The block's index (within the shard).
   \item The hash code of the previous block.
+  \item A timestamp approximating when the block is created.
   \item The hash codes of latest blocks of appropriate neighboring shards.
   \item The hash code of the root Merkle Patricia node for the current account data.
   \item The new actions being executed in this block.
