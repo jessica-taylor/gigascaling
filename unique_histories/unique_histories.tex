@@ -1,0 +1,47 @@
+\documentclass{article}
+\usepackage{tikz}
+\usetikzlibrary{positioning}
+
+\title{Unique histories: a scalable cryptocurrency algorithm using SNARKs}
+\date{\today}
+\author{Jessica Taylor}
+
+\begin{document}
+
+\maketitle
+
+This paper presents a scalable blockchain algorithm.  It is in some ways inspired by the Inductive Consensus Tree Protocol (ICTP), but it substantially different.
+
+\section{Overview}
+
+Imagine that everyone has their own journal.  Each page of the journal includes the hash code of the previous page of the same journal, and hash codes of pages of other people's journals.  It is possible to derive from this a partial time-ordering: if one of Alice's pages references one of Bob's pages, we know that Alice's page comes after Bob's page temporally.
+
+Here is a problem: An attacker (Mallory) could create two journal pages which each follow from the same previous journal page.  Now different people could have different ideas of what Mallory's journal history is, and Mallory could change her story over time.  If the journals are used to implement a currency, Mallory could double-spend by first publishing a new page saying she spent money, receiving the good or service based on this payment, and then publishing an alternative page saying she never spent the money; if others ``believe'' this new page, she will be able to spend the money again.
+
+To solve this problem, each journal page now references a table mapping page hash codes to the hash code of the unique next page, which includes all links in the original page's history.  This table may be very large, but it can be stored in a distributed Merkle Patricia tree efficiently since many parts of the tree are the same between different pages (including different pages by different people).
+
+When Alice refers to Bob's page, her new page must have a table that unifies her previous page's table and Bob's page's table.  If there are any collisions, where Alice and Bob disagree about what page follows some other page, then this union is undefined, and hence Alice cannot make this reference.  Otherwise, the union has all entries that are in \emph{either} table.
+
+This ensures that Alice's new page has a consistent history: there is no disagreeement \emph{anywhere} in its history about what page follows any other given page.  So there is a way to re-construct prefixes of people's journals based on this history with no journal forking into two.
+
+People can check that these tables (and the pages themselves) are valid using zk-SNARKs, some of which recursively verify the existence of other zk-SNARKs.
+
+For transaction finality, there is a regular blockchain (proof-of-work or proof-of-stake) that includes hash codes of some pages, each of whose histories are consistent with each others' and with previously included pages, which are considered set-in-stone once the blockchain includes them.  Since pages reference each other a lot, there is no need to include a large number of new pages, so the regular blockchain is itself efficient.  (The algorithm presented can easily be used as a layer 2 system on a blockchain with smart contracts, such as Ethereum, by using the layer 1 blockchain for finality.)
+
+\section{Graphing transaction histories}
+
+Here we present a more formal treatment of ``pages''.  A page is one of the following:
+
+\begin{itemize}
+  \item A \emph{genesis page} is the first page in a journal.  It includes the public key of the corresponding owner.  Some specified users start with money; other users can be created at will but start with nothing.
+  \item A \emph{transaction page} is a non-first page in a journal.  It references the previous page and updates the account state.  Send transactions specify who the money goes to.  Receive transactions specify the send-transaction-containing page to receive from.  This must be signed by the owner of the journal.
+  \item A \emph{collection page} is a page outside any journal that references a number of other pages of any type.  It is used to collect together the histories of multiple other pages.
+\end{itemize}
+
+The links from transaction pages to the previous page in the journal are especially important, and are called \emph{continuation links}.  Other links (which include links to received sends, and all references in collection pages) are \emph{non-continuation links}.
+
+It is possible to graph a set of pages: the nodes are pages and the arrows are links.  A page's history consists of all pages (incluing itself) that are directly or indirectly linked to.
+
+A history is \emph{consistent} if it does not contain 3 different pages A, B, and C, such that B and C both have continuation links to A.  This ensures that no journal forks into two.
+
+\end{document}
