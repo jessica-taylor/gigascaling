@@ -1,4 +1,7 @@
 \documentclass{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{algorithm2e}
 \usepackage{tikz}
 \usetikzlibrary{positioning}
 
@@ -10,38 +13,154 @@
 
 \maketitle
 
-This paper presents a scalable blockchain algorithm.  It is in some ways inspired by the Inductive Consensus Tree Protocol (ICTP), but it substantially different.
+This paper presents a scalable blockchain algorithm.  It is in some ways inspired by the Inductive Consensus Tree Protocol (ICTP), but it substantially different, and is most naturally evaluated on its own.
 
 \section{Overview}
 
-Imagine that everyone has their own journal.  Each page of the journal includes the hash code of the previous page of the same journal, and hash codes of pages of other people's journals.  It is possible to derive from this a partial time-ordering: if one of Alice's pages references one of Bob's pages, we know that Alice's page comes after Bob's page temporally.
+Imagine that everyone has their own journal.  Each entry of the journal includes the hash code of the previous entry of the same journal, and hash codes of entries of other people's journals.  It is possible to derive from this a partial time-ordering: if one of Alice's entries references one of Bob's entries, we know that Alice's entry comes after Bob's entry temporally.
 
-Here is a problem: An attacker (Mallory) could create two journal pages which each follow from the same previous journal page.  Now different people could have different ideas of what Mallory's journal history is, and Mallory could change her story over time.  If the journals are used to implement a currency, Mallory could double-spend by first publishing a new page saying she spent money, receiving the good or service based on this payment, and then publishing an alternative page saying she never spent the money; if others ``believe'' this new page, she will be able to spend the money again.
+Here is a problem: An attacker (Mallory) could create two journal entries which each follow from the same previous journal entry.  Now different people could have different ideas of what Mallory's journal history is, and Mallory could change her story over time.  If the journals are used to implement a currency, Mallory could double-spend by first publishing a new entry saying she spent money, receiving the good or service based on this payment, and then publishing an alternative entry saying she never spent the money; if others ``believe'' this new entry, she will be able to spend the money again.
 
-To solve this problem, each journal page now references a table mapping page hash codes to the hash code of the unique next page, which includes all links in the original page's history.  This table may be very large, but it can be stored in a distributed Merkle Patricia tree efficiently since many parts of the tree are the same between different pages (including different pages by different people).
+To solve this problem, each journal entry now references a table mapping entry hash codes to the hash code of the unique next entry, which includes all links in the original entry's history.  This table may be very large, but it can be stored in a distributed Merkle Patricia tree efficiently since many parts of the tree are the same between different entries (including different entries by different people).
 
-When Alice refers to Bob's page, her new page must have a table that unifies her previous page's table and Bob's page's table.  If there are any collisions, where Alice and Bob disagree about what page follows some other page, then this union is undefined, and hence Alice cannot make this reference.  Otherwise, the union has all entries that are in \emph{either} table.
+When Alice refers to Bob's entry, her new entry must have a table that unifies her previous entry's table and Bob's entry's table.  If there are any collisions, where Alice and Bob disagree about what entry follows some other entry, then this union is undefined, and hence Alice cannot make this reference.  Otherwise, the union has all entries that are in \emph{either} table.
 
-This ensures that Alice's new page has a consistent history: there is no disagreeement \emph{anywhere} in its history about what page follows any other given page.  So there is a way to re-construct prefixes of people's journals based on this history with no journal forking into two.
+This ensures that Alice's new entry has a consistent history: there is no disagreeement \emph{anywhere} in its history about what entry follows any other given entry.  So there is a way to re-construct prefixes of people's journals based on this history with no journal forking into two.
 
-People can check that these tables (and the pages themselves) are valid using zk-SNARKs, some of which recursively verify the existence of other zk-SNARKs.
+People can check that these tables (and the entries themselves) are valid using zk-SNARKs, some of which recursively verify the existence of other zk-SNARKs.
 
-For transaction finality, there is a regular blockchain (proof-of-work or proof-of-stake) that includes hash codes of some pages, each of whose histories are consistent with each others' and with previously included pages, which are considered set-in-stone once the blockchain includes them.  Since pages reference each other a lot, there is no need to include a large number of new pages, so the regular blockchain is itself efficient.  (The algorithm presented can easily be used as a layer 2 system on a blockchain with smart contracts, such as Ethereum, by using the layer 1 blockchain for finality.)
+For transaction finality, there is a regular blockchain (proof-of-work or proof-of-stake) that includes hash codes of some entries, each of whose histories are consistent with each others' and with previously included entries, which are considered set-in-stone once the blockchain includes them.  Since entries reference each other a lot, there is no need to include a large number of new entries, so the regular blockchain is itself efficient.  (The algorithm presented can easily be used as a layer 2 system on a blockchain with smart contracts, such as Ethereum, by using the layer 1 blockchain for finality.)
 
 \section{Graphing transaction histories}
 
-Here we present a more formal treatment of ``pages''.  A page is one of the following:
+Here we present a more formal treatment of ``entries''.  A entry is one of the following:
 
 \begin{itemize}
-  \item A \emph{genesis page} is the first page in a journal.  It includes the public key of the corresponding owner.  Some specified users start with money; other users can be created at will but start with nothing.
-  \item A \emph{transaction page} is a non-first page in a journal.  It references the previous page and updates the account state.  Send transactions specify who the money goes to.  Receive transactions specify the send-transaction-containing page to receive from.  This must be signed by the owner of the journal.
-  \item A \emph{collection page} is a page outside any journal that references a number of other pages of any type.  It is used to collect together the histories of multiple other pages.
+  \item A \emph{genesis entry} is the first entry in a journal.  It includes the public key of the corresponding owner.  Some specified users start with money; other users can be created at will but start with nothing.
+  \item A \emph{transaction entry} is a non-first entry in a journal.  It references the previous entry and updates the account state.  Send transactions specify who the money goes to.  Receive transactions specify the send-transaction-containing entry to receive from.  This must be signed by the owner of the journal.
+  \item A \emph{collection entry} is a entry outside any journal that references a number of other entries of any type.  It is used to collect together the histories of multiple other entries.
 \end{itemize}
 
-The links from transaction pages to the previous page in the journal are especially important, and are called \emph{continuation links}.  Other links (which include links to received sends, and all references in collection pages) are \emph{non-continuation links}.
+The links from transaction entries to the previous entry in the journal are especially important, and are called \emph{continuation links}.  Other links (which include links to received sends, and all references in collection entries) are \emph{non-continuation links}.
 
-It is possible to graph a set of pages: the nodes are pages and the arrows are links.  A page's history consists of all pages (incluing itself) that are directly or indirectly linked to.
+It is possible to graph a set of entries: the nodes are entries and the arrows are links.  A entry's history consists of all entries (incluing itself) that are directly or indirectly linked to.
 
-A history is \emph{consistent} if it does not contain 3 different pages A, B, and C, such that B and C both have continuation links to A.  This ensures that no journal forks into two.
+A history is \emph{consistent} if it does not contain 3 different entries A, B, and C, such that B and C both have continuation links to A.  This ensures that no journal forks into two.
+
+\section{Ensuring histories are consistent}
+
+It is comparatively easy to construct zk-SNARKs verifying validity properties other than history consistency, so we will focus on this harder problem.
+
+Let us first consider writing an algorithm that takes as input a entry graph structure and determines whether it represents a consistent history:
+
+\begin{algorithm}
+  \KwData{A directed acyclic entry graph $g$}
+  \KwResult{A Boolean indicating whether or not $g$ is a consistent history}
+  \SetKwArray{Ctable}{ctable}
+  initialize \Ctable to empty\;
+  \ForEach{entry $p$ of $g$} {
+    \If{$p$ is a transaction entry} {
+      $x \gets p.prev$ \tcp*{$x$ is a hash code}
+      \eIf{\Ctable{x} exists}{
+        \If{$\Ctable{x} \neq hash(p)$}{
+          \Return{false}\;
+        }
+      }{
+        $ctable[x] \gets hash(p)$\;
+      }
+    }
+  }
+  \Return{true}\;
+\end{algorithm}
+
+This algorithm is straightforward: it searches for cases where two distinct transaction entries have the same previous entry.  The \emph{continuation table} \textsf{ctable} is used to map previous to next entries.
+
+A problem with this algorithm is that it's not obvious how to distribute it among multiple parties.  Since entry graphs will get large, it will be impractical to run this algorithm on any single computer.
+
+To handle this problem, we represent continuation tables as Merkle tries, and define a unification operation on them.  This unification operation ...
+
+Let $b$ be the branching factor of the trie (e.g. 4); let $l$ be the number of $b$-digits required to represent a hash code.  The sets $Ctrie_0 \ldots Ctrie_{l-1}$ are defined as follows:
+
+\begin{align*}
+  Ctrie_0 &:= \{ \varnothing \} \cup \left\{ Leaf(s, d) \middle| s, d \in Hash \right\} \\
+  Ctrie_{k+1} &:= Ctrie_k \cup \left\{ Branch_{k+1}(hash(c_1), \ldots, hash(c_b)) \middle| c_1, \ldots, c_b \in Ctrie_k \right\}
+\end{align*}
+
+The union operation on continuation tries, $\hat{\cup}$, is defined by the following rewrite rules:
+
+\begin{align*}
+  x \hat{\cup}_i x &= x & \\
+  x \hat{\cup}_i y &= y \hat{\cup} x & \\
+  \varnothing \hat{\cup}_i x &= x & \\
+  Leaf(a, b) \hat{\cup}_i Leaf(a, c) &= undefined &
+\end{align*}
+
+To handle this problem, we give each page \emph{its own continuation table}, reprepresenting the continuation table that would be computed from its history.  This seems very inefficient, but work can be cached between different pages.
+
+A first step is to represent continuation tables as Merkle tries.  This is straightforward since they map hash codes to hash codes.
+
+Another step is to define a \emph{union} operation on continuation tables.  This unifies the histories represented by both tables, returning $\mathbf{null}$ in cases wheret the tables are inconsistent:
+
+\begin{algorithm}
+  \KwData{Two continuation tables, $t_1$ and $t_2$}
+  \KwResult{A unifying table if it exists, otherwise $\mathbf{null}$}
+  \uIf{$t_1 = t_2$}{
+    \Return{$t_1$};
+  }
+  \uElseIf{$t_1$ is empty}{
+    \Return{$t_2$}\;
+  }
+  \uElseIf{$t_2$ is empty}{
+    \Return{$t_1$}\;
+  }
+  \uElseIf{$t_1$ and/or $t_2$ is a leaf node}{
+    \Return{$\mathbf{null}$}\;
+  }
+  \uElse{
+    $t_3 \gets$ new trie node\;
+    \ForEach{$child index i$}{
+      $u \gets Union(hashlookup(t_1[i]), hashlookup(t_2[i]))$\;
+      \If{$u = \mathbf{null}$}{
+        \Return{$\mathbf{null}$}\;
+      }
+      $t_3[i] \gets hashput(u)$\;
+    }
+    \Return{$t_3$}\;
+  }
+\end{algorithm}
+
+Here, $hashlookup$ looks up a value by its hash code in some hash store (which may be distributed), and $hashput$ puts a new value in the hash store, returning the hash code of the value.
+
+The recursive algorithm presented benefits from caching if called multiple times.  In practice, such caching is necessary to make the algorithm performant, since each continuation table will be large.
+
+Similarly, the \emph{insert} operation takes a continuation table, a previous entry, and its continuation, and inserts the new pair in the table, returning the new table, or $\mathbf{null}$ if the new continuation collides with
+the old table's existing continuation for the entry.
+
+At this point it is possible to write a parallelizable version of the original algorithm:
+
+\begin{algorithm}
+  \KwData{A directed acyclic entry graph $g$}
+  \KwResult{A Boolean indicating whether or not $g$ is a consistent history}
+  \SetKwArray{Ctables}{ctables}
+  initialize \Ctables to empty\;
+  \ForEach{entry $p$ of $g$ in a topological sort order} {
+    \uIf{$p$ is a genesis entry}{
+      $\Ctables{hash(p)} \gets empty$\;
+    }
+    \uElseIf{$p$ is a transaction entry} {
+      \eIf{$p$ is a send}{
+        $\Ctables{hash(p)} \gets insert(\Ctables{p.prev}, p.prev, hash(p))$\;
+      }{
+        $\Ctables{hash(p)} \gets insert(union(\Ctables{p.prev}, \Ctables{p.source}), p.prev, hash(p))$\;
+      }
+      \If{$\Ctables{hash(p)} = \mathbf{null}$}{
+        \Return{false}\;
+      }
+    }
+  }
+  \Return{true}\;
+\end{algorithm}
+
+This is strictly less efficient than the original algorithm if run on a single computer.  However, the algorithm can be more naturally parallelized.  There is a single unit of work that has to be done per entry, and this work only depends on the linked entries (and their ccontinuation tables), no other entries.
 
 \end{document}
