@@ -11,7 +11,7 @@ that even a single large country's financial transactions could not all occur on
 
 ## Theoretical alternatives to "everyone verifies everything"
 
-There are 2 broad categories of alterantives to everyone verifying everything:
+There are 2 broad categories of alternatives to everyone verifying everything:
 
 1. A _positive_ verification method will include in each piece of data (such as a block) a "proof" that that data is valid.  This includes verifying that other pieces of data referred to by this piece of data contain such proofs.
 2. A _negative_ verification method permits proofs that a given piece of data is invalid.  If such proofs are found, they are distributed to others so that the invalidity can be widely known.
