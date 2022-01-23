@@ -1,0 +1,115 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{algorithm2e}
+\usepackage{tikz}
+\usetikzlibrary{positioning}
+
+\title{Available sharding: a bribery-resistant scalable cryptocurrency algorithm using zk-SNARKs (DRAFT)}
+\date{\today}
+\author{Jessica Taylor}
+
+\begin{document}
+
+\maketitle
+
+This paper presents a scalable blockchain algorithm.  It is in some ways inspired by the Inductive Consensus Tree Protocol (ICTP), but it substantially different, and is most naturally evaluated on its own.  It can be used as a layer 2 of a blockchain that supports smart contracts, such as Ethereum.
+
+\section{Overview}
+
+In a standard blockchain such as Bitcoin or Ethereum, all full nodes verify every transaction.  Obviously, this creates scaling problems.
+
+Suppose each transaction is only verified and stored by some parties.  Specifically, there will be a number of shards, each of which is its own blockchain.  This creates problems for agents other than the verifiers:
+
+\begin{itemize}
+  \item \emph{Transaction validity}: How can those who didn't verify the transactions be assured that the transactions are valid and that new account states follow from previous account states?
+  \item \emph{No forking}: How can everyone (especially agents not verifying a given shard) be assured that no other shard forks into two?  If a shard forks, that could make double-spending possible, among other problems.
+  \item \emph{Data availability}: How can everyone be assured that shard blocks (and new account states) are potentially available to everyone?  Everyone whose account is in a shard should be able to know (and prove) their new account state in a given block.
+\end{itemize}
+
+Zk-SNARKs solve \emph{transaction validity}: each new block may come with a zk-SNARK showing that it validly follows from previous blocks, which includes the condition that each transaction is valid and new account states follow from previous account states.  This may be more efficient if the zk-SNARKs can be recursive (i.e. prove that other zk-SNARKs exist).
+
+There are at least two ways to prevent forking:
+
+\begin{enumerate}
+  \item Some information about each new shard block may be required to be included in a main blockchain.  This information must include the block's hash code and a proof that it is the successor of the previous block of the same shard.  In the general case this requires storing only one hash code per new block: we can store a hash code of the new block's data \emph{other than} the hash code of the previous block, and get the new block's hash code by hashing the hash code of the previous block along with the hash code of this additional data.  These hash codes come along with zk-SNARks proving validity.
+  \item Each validator in every shard can store a graph of all shard blocks.  This way, whenever there is a new shard block, they can ensure that the graph does not contain a competing block following from the same source.  Some of this history can be forgotten after finalization, which works similar to method 1.
+\end{enumerate}
+
+Method 2 is more complicated and will be explained further later in the paper.
+
+Data availability is the hardest problem to solve.  One approach is to select a random sample of stakers (a \emph{pool}) to validate each new shard block; the block must be signed by a majority of this random sample.  If a supermajority of stakers are honest, this ensures that at least one honest staker will have seen and verified the data of the new block, and this honest staker can make the data available in the future.
+
+A problem with this approach is bribery: someone could bribe verifiers into pretending to verify data while actually not making it available, which makes the shard impossible to recover, since no one will provide the data.
+
+We solve this problem by using erasure codes to create redundancy in each shard's data, and then having each chunk of the redundant data stored by a \emph{different} pool.
+Erasure codes work by extending some number $n$ of equally-sized data chunks to $m$ chunks, such that the original $n$ chunks can be recoveredy by knowing any $n$ of the $m$ chunks.
+At this point, making even a single shard's data unavailable would require bribing a significant fraction, not just a single one.  This vastly increases the cost of bribery that would make data unavailable to the
+point where, if pool members follow economic incentives, such bribery requires owning a significant fraction of the total currency in the system.
+
+A single pool will responsible for storing a single chunk from every shard, e.g. pool number 5 will store chunk 5 of every shard.
+
+\section{Algorithmic primitives}
+
+We rely on the following cryptographic primitives:
+
+\begin{itemize}
+  \item Digital signatures
+  \item Recursive SNARKs (i.e. SNARKs that can verify the existence of other SNARKs)
+\end{itemize}
+
+We also make use of an erasure code, such as Reed-Solomon codes.
+
+\section{Basic sharding setup}
+
+There is a main blockchain and a number of shards, each of which is a blockchain.
+
+The main data in a shard block is a set of account state updates.  Each of these specifies an account to update and the hash code of its new (private) state.  (In the case where accounts have public state, the state update contains sufficient information to construct the new public state from the old public state as well; however, we focus on private state for most of this document.)
+
+To be considered valid, each state update must come with a SNARK showing that the new account state validly follows from running a set of transactions on the previous account state (which is in the usual case the last state of that account stored in the shard, although it is also possible for new accounts to be created, whose states are initialized to a default state.)  To save space, these SNARKs are not included in the shard block.  Instead, a recursive SNARK is computed that shows that a SNARK exists for each account state update.
+
+The main chain contains shard state updates, each of which specifies the index of the updated shard and the hash code of the new shard block.  As with account state updates, shard state updates are only considered valid if there exists a SNARK showing that the update is valid.  These SNARKs include verification of the recursive SNARK from before.  As with account state updates, they are aggregated into a recursive SNARK rather than being individually stored in the main chain.
+ 
+We do not pay much attention to the consensus procedure for shards, as shard blocks are not problematic as long as they are valid and have available data, so the main chain can be fairly permissive in accepting new shard blocks.  The main chain's consensus procedure is more important; we do not discuss it much in this document since the problem of main chain consensus is the same as it is for other blockchains, and has standand solutions including proof-of-work and proof-of-stake.
+
+The main problem we seek to solve is producing a SNARK that assures that the data of each new shard block is stored by at least one party.
+
+\section{Data availability proofs}
+
+We pick a chunk size $c$ (in bytes) and assume a shard block consists of an most $n$ chunks (which puts an upper bound of $cn$ on the size of the block).  We choose $m > n$ and extend the $n$ chunks into $m$ chunks using a Reed-Solomon code.  At this point, the block data can be recovered as long as $n$ chunks are known.
+
+For every number $i$ between 1 and $m$, a \emph{pool} will exist and be responsible for storing chunk $i$ of the encoding of every new shard block.  Each staking memmber is assigned to a pool randomly in a way that ensures that each pool has almost as many members as every other pool (off by at most 1).  Pools are reshuffled occasionally, but stay the same in most new main blocks.  Note that the randomness is not critical for security properties, although it may marginally improve security anyway.
+
+
+Every participating pool member will download and store as much of the data they are responsible for as they can (which can be verified to be the right data using a SNARK), and sign a message
+saying what set of shards they have stored corresponding data for (this set can be represented as a bit vector).
+
+To disincentivize dishonesty, we provide a mechanism for pool members to be challenged, in the main chain, to provide data they have asserted they will provide; if they cannot provide this data in a given time period, they lose their stake.
+
+A key property is that, if at least one member of each of $n$ pools store their corresponding chunk of a given shard block, that shard block is recoverable, using the erasure code.
+
+Let $z$ be the total number of stakers, and note that each pool is of size $\lfloor z/m \rfloor$ or $\lceil z/m \rceil$.  Fix a shard $k$.  Let the total number of signatures by pool members asserting they store shard $k$'s data be $s$.
+If number of honest signers is at least $(n-1)\lceil z/m \rceil+1$, then the data will be available.  This is because, in the worst case, all the honest parties are concentrated
+in as few pools as possible, and these pools have size $\lceil z/m \rceil$.  After exhausting $n-1$ pools of size $\lceil z/m \rceil$, if there is an honest signer left over, they will
+be in a different pool, ensuring that $n$ pools have honest signers.
+
+We can rewrite the condition that at least $(n-1)\lceil z/m \rceil + 1$ signers are honest as an equivalent
+condition that less than $s-(n-1)\lceil z/m \rceil - 1$ signers are dishonest. If this number is a significant fraction (say, over $1/3$) of the
+total number of stakers z, it follows that a high percentage of stakers would have to
+be dishonest to make data unavailable; incentivizing this dishonesty (assuming
+the bribed stakers expect to be challenged) would cost about this fraction of
+the total stake.
+
+Let $\alpha$ be an upper bound on the number of stakers we expect to be dishonest in any given block (e.g. $\alpha = 1/3$).
+We now set a threshold $t := \lceil (n-1)\lceil z/m \rceil + 1 + \alpha z \rceil$ and only accept shard $k$'s new block
+if $s \geq t$, i.e. at least $t$ stakers have signed a message saying that they have stored their
+chunk of shard $k$'s data.
+
+The threshold can be approximated as $t \approx z(n/m + \alpha)$.  If $\alpha = 1/3$ and $n/m = 1/6$, then $t \approx z/2$,
+which means the requirement would be that a majority of stakers have to sign.  If on the other hand $\alpha = 1/2$ and $n/m = 1/6$,
+then $t \approx 2z/3$, which means the requirement would be that a 2/3 supermajority of stakers have to sign.
+Setting $\alpha$ higher reduces the risk of data availability attacks while increasing the risk of denial of service attacks
+(or failures of service due to too many stakers being offline).
+
+
+\end{document}

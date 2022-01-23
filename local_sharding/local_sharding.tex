@@ -1,0 +1,184 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{algorithm2e}
+\usepackage{tikz}
+\usetikzlibrary{positioning}
+
+\title{Local sharding: a bribery-resistant scalable cryptocurrency algorithm using zk-SNARKs}
+\date{\today}
+\author{Jessica Taylor}
+
+\begin{document}
+
+\maketitle
+
+This paper presents a scalable blockchain algorithm.  It is in some ways inspired by the Inductive Consensus Tree Protocol (ICTP), but it substantially different, and is most naturally evaluated on its own.  It can be used as a layer 2 of a blockchain that supports smart contracts, such as Ethereum.
+
+\section{Overview}
+
+In a standard blockchain such as Bitcoin or Ethereum, all full nodes verify every transaction.  Obviously, this creates scaling problems.
+
+Suppose each transaction is only verified and stored by some parties.  Specifically, there will be a number of shards, each of which is its own blockchain.  This creates problems for agents other than the verifiers:
+
+\begin{itemize}
+  \item \emph{Transaction validity}: How can those who didn't verify the transactions be assured that the transactions are valid and that new account states follow from previous account states?
+  \item \emph{No forking}: How can everyone (especially agents not verifying a given shard) be assured that no other shard forks into two?  If a shard forks, that could make double-spending possible, among other problems.
+  \item \emph{Data availability}: How can everyone be assured that shard blocks (and new account states) are potentially available to everyone?  Everyone whose account is in a shard should be able to know (and prove) their new account state in a given block.
+\end{itemize}
+
+Zk-SNARKs solve \emph{transaction validity}: each new block may come with a zk-SNARK showing that it validly follows from previous blocks, which includes the condition that each transaction is valid and new account states follow from previous account states.  This may be more efficient if the zk-SNARKs can be recursive (i.e. prove that other zk-SNARKs exist).
+
+There are at least two ways to prevent forking:
+
+\begin{enumerate}
+  \item Some information about each new shard block may be required to be included in a main blockchain.  This information must include the block's hash code and a proof that it is the successor of the previous block of the same shard.  In the general case this requires storing only one hash code per new block: we can store a hash code of the new block's data \emph{other than} the hash code of the previous block, and get the new block's hash code by hashing the hash code of the previous block along with the hash code of this additional data.  These hash codes come along with zk-SNARks proving validity.
+  \item Each validator in every shard can store a graph of all shard blocks.  This way, whenever there is a new shard block, they can ensure that the graph does not contain a competing block following from the same source.  Some of this history can be forgotten after finalization, which works similar to method 1.
+\end{enumerate}
+
+Method 2 is more complicated and will be explained further later in the paper.
+
+Data availability is the hardest problem to solve.  One approach is to select a random sample of stakers to validate each new shard block; the block must be signed by a majority of this random sample.  If a supermajority of stakers are honest, this ensures that at least one honest staker will have seen and verified the data of the new block, and this honest staker can make the data available in the future.
+
+A problem with this approach is bribery: someone could bribe verifiers into pretending to verify data while actually not making it available, which makes the shard impossible to recover, since no one will provide the data.
+
+There is a way of mitigating the bribery problem, however.  If verifiers are selected, not based on whether they stake a \emph{global} currency, but on how much of a \emph{local} governance currency they hold (which may be local to a single shard or a set of shards), then incentives are much better: governers of a given shard have an incentive to keep the shard functional in a way that stakers of a global currency do not.  In the case of global stakers, bribery creates \emph{externalities}: verifiers who don't have a particular interest in a shard have little incentive to make the shard function.  These externalities are internalized in the case of a local governance currency.
+
+This ends the general exposition of the principles used in the algorithms presented.  We will now present a sequence of three algorithms: one that requires all new blocks to have hash codes of their data stored in the main chain, and does not require recursive zk-SNARKs; one that uses recursive zk-SNARKs to improve the efficiency of the previous algorithm; and one that uses a graph of shard blocks and recursive zk-SNARKS to ensure no forking.  The algorithms become more theoretically efficient, though more complex to implement, in the order presented.
+
+\section{Algorithm 1: A simple layer 2 sharding method}
+
+
+\section{Graphing transaction histories}
+
+Here we present a more formal treatment of ``entries''.  A entry is one of the following:
+
+\begin{itemize}
+  \item A \emph{genesis entry} is the first entry in a journal.  It includes the public key of the corresponding owner.  Some specified users start with money; other users can be created at will but start with nothing.
+  \item A \emph{transaction entry} is a non-first entry in a journal.  It references the previous entry and updates the account state.  Send transactions specify who the money goes to.  Receive transactions specify the send-transaction-containing entry to receive from.  This must be signed by the owner of the journal.
+  \item A \emph{collection entry} is a entry outside any journal that references a number of other entries of any type.  It is used to collect together the histories of multiple other entries.
+\end{itemize}
+
+The links from transaction entries to the previous entry in the journal are especially important, and are called \emph{continuation links}.  Other links (which include links to received sends, and all references in collection entries) are \emph{non-continuation links}.
+
+It is possible to graph a set of entries: the nodes are entries and the arrows are links.  A entry's history consists of all entries (incluing itself) that are directly or indirectly linked to.
+
+A history is \emph{consistent} if it does not contain 3 different entries A, B, and C, such that B and C both have continuation links to A.  This ensures that no journal forks into two.
+
+\section{Ensuring histories are consistent}
+
+It is comparatively easy to construct zk-SNARKs verifying validity properties other than history consistency, so we will focus on this harder problem.
+
+Let us first consider writing an algorithm that takes as input a entry graph structure and determines whether it represents a consistent history:
+
+\begin{algorithm}
+  \KwData{A directed acyclic entry graph $g$}
+  \KwResult{A Boolean indicating whether or not $g$ is a consistent history}
+  \SetKwArray{Ctable}{ctable}
+  initialize \Ctable to empty\;
+  \ForEach{entry $p$ of $g$} {
+    \If{$p$ is a transaction entry} {
+      $x \gets p.prev$ \tcp*{$x$ is a hash code}
+      \eIf{\Ctable{x} exists}{
+        \If{$\Ctable{x} \neq hash(p)$}{
+          \Return{false}\;
+        }
+      }{
+        $ctable[x] \gets hash(p)$\;
+      }
+    }
+  }
+  \Return{true}\;
+\end{algorithm}
+
+This algorithm is straightforward: it searches for cases where two distinct transaction entries have the same previous entry.  The \emph{continuation table} \textsf{ctable} is used to map previous to next entries.
+
+A problem with this algorithm is that it's not obvious how to distribute it among multiple parties.  Since entry graphs will get large, it will be impractical to run this algorithm on any single computer.
+
+To handle this problem, we represent continuation tables as Merkle tries, and define a unification operation on them.  This unification operation ...
+
+Let $b$ be the branching factor of the trie (e.g. 4); let $l$ be the number of $b$-digits required to represent a hash code.  The sets $Ctrie_0 \ldots Ctrie_{l-1}$ are defined as follows:
+
+\begin{align*}
+  Ctrie_0 &:= \{ \varnothing \} \cup \left\{ Leaf(s, d) \middle| s, d \in Hash \right\} \\
+  Ctrie_{k+1} &:= Ctrie_k \cup \left\{ Branch_{k+1}(hash(c_1), \ldots, hash(c_b)) \middle| c_1, \ldots, c_b \in Ctrie_k \right\}
+\end{align*}
+
+The union operation on continuation tries, $\hat{\cup}$, is defined by the following rewrite rules:
+
+\begin{align*}
+  x \hat{\cup}_i x &= x & \\
+  x \hat{\cup}_i y &= y \hat{\cup} x & \\
+  \varnothing \hat{\cup}_i x &= x & \\
+  Leaf(a, b) \hat{\cup}_i Leaf(a, c) &= undefined &
+\end{align*}
+
+To handle this problem, we give each page \emph{its own continuation table}, reprepresenting the continuation table that would be computed from its history.  This seems very inefficient, but work can be cached between different pages.
+
+A first step is to represent continuation tables as Merkle tries.  This is straightforward since they map hash codes to hash codes.
+
+Another step is to define a \emph{union} operation on continuation tables.  This unifies the histories represented by both tables, returning $\mathbf{null}$ in cases wheret the tables are inconsistent:
+
+\begin{algorithm}
+  \KwData{Two continuation tables, $t_1$ and $t_2$}
+  \KwResult{A unifying table if it exists, otherwise $\mathbf{null}$}
+  \uIf{$t_1 = t_2$}{
+    \Return{$t_1$};
+  }
+  \uElseIf{$t_1$ is empty}{
+    \Return{$t_2$}\;
+  }
+  \uElseIf{$t_2$ is empty}{
+    \Return{$t_1$}\;
+  }
+  \uElseIf{$t_1$ and/or $t_2$ is a leaf node}{
+    \Return{$\mathbf{null}$}\;
+  }
+  \uElse{
+    $t_3 \gets$ new trie node\;
+    \ForEach{$child index i$}{
+      $u \gets Union(hashlookup(t_1[i]), hashlookup(t_2[i]))$\;
+      \If{$u = \mathbf{null}$}{
+        \Return{$\mathbf{null}$}\;
+      }
+      $t_3[i] \gets hashput(u)$\;
+    }
+    \Return{$t_3$}\;
+  }
+\end{algorithm}
+
+Here, $hashlookup$ looks up a value by its hash code in some hash store (which may be distributed), and $hashput$ puts a new value in the hash store, returning the hash code of the value.
+
+The recursive algorithm presented benefits from caching if called multiple times.  In practice, such caching is necessary to make the algorithm performant, since each continuation table will be large.
+
+Similarly, the \emph{insert} operation takes a continuation table, a previous entry, and its continuation, and inserts the new pair in the table, returning the new table, or $\mathbf{null}$ if the new continuation collides with
+the old table's existing continuation for the entry.
+
+At this point it is possible to write a parallelizable version of the original algorithm:
+
+\begin{algorithm}
+  \KwData{A directed acyclic entry graph $g$}
+  \KwResult{A Boolean indicating whether or not $g$ is a consistent history}
+  \SetKwArray{Ctables}{ctables}
+  initialize \Ctables to empty\;
+  \ForEach{entry $p$ of $g$ in a topological sort order} {
+    \uIf{$p$ is a genesis entry}{
+      $\Ctables{hash(p)} \gets empty$\;
+    }
+    \uElseIf{$p$ is a transaction entry} {
+      \eIf{$p$ is a send}{
+        $\Ctables{hash(p)} \gets insert(\Ctables{p.prev}, p.prev, hash(p))$\;
+      }{
+        $\Ctables{hash(p)} \gets insert(union(\Ctables{p.prev}, \Ctables{p.source}), p.prev, hash(p))$\;
+      }
+      \If{$\Ctables{hash(p)} = \mathbf{null}$}{
+        \Return{false}\;
+      }
+    }
+  }
+  \Return{true}\;
+\end{algorithm}
+
+This is strictly less efficient than the original algorithm if run on a single computer.  However, the algorithm can be more naturally parallelized.  There is a single unit of work that has to be done per entry, and this work only depends on the linked entries (and their ccontinuation tables), no other entries.
+
+\end{document}
