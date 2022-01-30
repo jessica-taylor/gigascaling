@@ -81,6 +81,7 @@ We pick a chunk size $c$ (in bytes) and assume a shard block consists of an most
 For every number $i$ between 1 and $m$, a \emph{pool} will exist and be responsible for storing chunk $i$ of the encoding of every new shard block.  Each staking memmber is assigned to a pool randomly in a way that ensures that each pool has almost as many members as every other pool (off by at most 1).  Pools are reshuffled occasionally, but stay the same in most new main blocks.  Note that the randomness is not critical for security properties, although it may marginally improve security anyway.
 
 
+
 Every participating pool member will download and store as much of the data they are responsible for as they can (which can be verified to be the right data using a SNARK), and sign a message
 saying what set of shards they have stored corresponding data for (this set can be represented as a bit vector).
 

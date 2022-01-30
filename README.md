@@ -20,8 +20,8 @@ We concentrate mainly on positive verification methods, since negative verificat
 
 There are 2 main forms of positive verification we consider:
 
-1. Use of zk-SNARKs to prove the data is valid, and that data referred to contains valid zk-SNARKs showing their own validity, recursively.
-2. Signatures from a supermajority of a random set of verifiers may be included, which assert that the supermajority has checked that the data is valid (and referenced data contains valid signatures asserting validity of that data, recursively).
+1. Signatures from a supermajority of a random set of verifiers may be included, which assert that the supermajority has checked that the data is valid (and referenced data contains valid signatures asserting validity of that data, recursively).
+2. Use of zk-SNARKs to prove the data is valid, and that data referred to contains valid zk-SNARKs showing their own validity, recursively.
 
 Although zk-SNARKs are sufficient to show validity, they aren't sufficient to show that the data itself is generally available to third parties.
 
@@ -29,12 +29,11 @@ In the case of the supermajority of a random set, the set must be selected to be
 
 ## Concrete algorithms
 
-We have developed 2 concrete algorithms using the supermajority of random set method:
+The main algorithm we are developing is [Erasure Coded Sharding](./available_sharding/ErasureCodedSharding.pdf), which uses a combination of zk-SNARKs,
+Reed Solomon codes, and signatures by a supermajority of verifiers to ensure validity and data availability even in the face of bribery.
 
-1. The [Inductive Consensus Tree Protocol](http://ictp.io), a method that constructs a Merkle Patricia tree in each new block.
-2. [Small World Sharding](./small_world_sharding/small_world_sharding.pdf), a method that breaks the blockchain into multiple shards that reference each other.
-
-We are currently focusing more on Small World Sharding due to its simplicity, its lower transaction confirmation time, and its lack of a single point of failure.
+A previous algorithm is the [Inductive Consensus Tree Protocol](http://ictp.io), a method that uses signatures of a supermajority of a random set of verifiers for
+ensuring validity, and constructs a new Merkle Patricia tree of account states in each new block.
 
 # Contact
 
