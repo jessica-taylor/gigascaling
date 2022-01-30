@@ -30,10 +30,10 @@ However, individual random sets are potentially vulnerable to bribery as they in
 
 ## Concrete algorithms
 
-The main algorithm we are developing is [Erasure Coded Sharding](./ErasureCodedSharding.pdf), which uses a combination of recursive zk-SNARKs,
+The main algorithm we are developing is [Erasure Coded Sharding](./ErasureCodedSharding.pdf) (2022), which uses a combination of recursive zk-SNARKs,
 Reed Solomon codes, and signatures by a supermajority of verifiers to ensure validity and data availability even in the face of bribery.
 
-A previous algorithm is the [Inductive Consensus Tree Protocol](http://ictp.io), a method that uses signatures of a supermajority of a random set of verifiers for
+A previous algorithm is the [Inductive Consensus Tree Protocol](http://ictp.io) (2018), a method that uses signatures of a supermajority of a random set of verifiers for
 ensuring validity, and constructs a new Merkle Patricia tree of account states in each new block.
 
 # Contact
