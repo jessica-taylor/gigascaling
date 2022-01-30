@@ -26,10 +26,11 @@ There are 2 main forms of positive verification we consider:
 Although zk-SNARKs are sufficient to show validity, they aren't sufficient to show that the data itself is generally available to third parties.
 
 In the case of the supermajority of a random set, the set must be selected to be large enough (and the supermajority threshold must be set) such that it is very likely that there is an honest supermajority, and extremely unlikely that there is a dishonest supermajority.
+However, individual random sets are potentially vulnerable to bribery as they include only a minority of verifiers.
 
 ## Concrete algorithms
 
-The main algorithm we are developing is [Erasure Coded Sharding](./available_sharding/ErasureCodedSharding.pdf), which uses a combination of zk-SNARKs,
+The main algorithm we are developing is [Erasure Coded Sharding](./available_sharding/ErasureCodedSharding.pdf), which uses a combination of recursive zk-SNARKs,
 Reed Solomon codes, and signatures by a supermajority of verifiers to ensure validity and data availability even in the face of bribery.
 
 A previous algorithm is the [Inductive Consensus Tree Protocol](http://ictp.io), a method that uses signatures of a supermajority of a random set of verifiers for
