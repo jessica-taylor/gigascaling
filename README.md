@@ -38,7 +38,7 @@ ensuring validity, and constructs a new Merkle Patricia tree of account states i
 
 # Contact
 
-This website was created by [Jessica Taylor](http://jessic.at).  I can be contacted at jessi.liu.taylor@gmail.com.
+This website was created by [Jessica Taylor](http://jessic.at).  I can be contacted at [jessica@gigascaling.net](mailto:jessica@gigascaling.net).
 
 <form action="https://gigascaling.us20.list-manage.com/subscribe/post?u=61c975c73b706888efaa969c1&amp;id=6cc0960d2f" method="post" id="mc-embedded-subscribe-form" name="mc-embedded-subscribe-form" class="validate" target="_blank" novalidate>
 	<label for="mce-EMAIL">Subscribe to our newsletter:</label>
