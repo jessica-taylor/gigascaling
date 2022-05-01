@@ -1,6 +1,3 @@
-layout: page
-title: Multichain
-permalink: /multichain
 
 # Multi-chain system
 
