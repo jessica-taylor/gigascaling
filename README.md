@@ -36,7 +36,7 @@ Reed Solomon codes, and signatures by a supermajority of verifiers to ensure val
 A previous algorithm is the [Inductive Consensus Tree Protocol](http://ictp.io) (2018), a method that uses signatures of a supermajority of a random set of verifiers for
 ensuring validity, and constructs a new Merkle Patricia tree of account states in each new block.
 
-We are additionally researching [multichain](/multichain) systems that allow for users of different blockchains (with their own currencies) to send messages between the different chains, enabling cross-chain applications, and achieving scalability through the multitude of mostly-independent blockchains.
+We are additionally researching [multichain](/multichain) systems that allow for users of different blockchains (with their own currencies) to send messages between the different chains, enabling cross-chain applications, and achieving scalability through the multitude of mostly-independent blockchains. The technical design we are using has many similarities with [Cosmos](cosmos.network), and some differences.
 
 # Contact
 
